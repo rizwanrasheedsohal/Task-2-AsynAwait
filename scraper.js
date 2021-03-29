@@ -6,7 +6,7 @@ const { JSDOM } = jsdom;
 exports.scrap = async function (req, res) {
   const addressArray = req.query.address;
   const titles = [];
-  for (const address of addressArray) {
+  for (let address of addressArray) {
     try {
       const response = await got(address);
       let dom = new JSDOM(response.body);
