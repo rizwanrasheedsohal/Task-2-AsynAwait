@@ -1,21 +1,47 @@
-const fetch = require("node-fetch");
-const got = require("got");
 const jsdom = require("jsdom");
 const { JSDOM } = jsdom;
+const Step = require("step");
+const request = require("request");
+var validUrl = require("valid-url");
 
 exports.scrap = async function (req, res) {
-  const addressArray = req.query.address;
-  const titles = [];
-  for (let address of addressArray) {
-    try {
-      const response = await got(address);
-      let dom = new JSDOM(response.body);
-      let title = dom.window.document.querySelector("title").textContent;
-      titles.push(title);
-    } catch (error) {
-      res.send("Error while fetching Title || URL is invalid");
-    }
+  let addressArray = req.query.address;
+  if (!Array.isArray(addressArray)) {
+    addressArray = [addressArray];
   }
-
-  res.render("titles", { titles });
+  let titles = [];
+  let count = 0;
+  for (let address of addressArray) {
+    if (!validUrl.isUri(address)) {
+      address = "https://" + address;
+    }
+    Step(
+      function requestHTTP() {
+        request(address, this);
+      },
+      function getResponse(err, response) {
+        if (err) {
+          titles.push(address + " -No response");
+        }
+        let dom = new JSDOM(response.body);
+        let title = dom.window.document.querySelector("title");
+        if (title !== null) {
+          title = title.textContent;
+          return title;
+        }
+        return err;
+      },
+      function pushTitle(err, title) {
+        if (err) throw err;
+        titles.push(address + " - " + "'" + title + "'");
+        return titles;
+      },
+      function renderUI(err, titles) {
+        count++;
+        if (count == addressArray.length) {
+          res.render("titles", { titles });
+        }
+      }
+    );
+  }
 };
